@@ -1,20 +1,31 @@
 package proxy
 
 import (
-	"crypto/hmac"
+	"crypto/sha1"
 	"crypto/sha256"
 	"database/sql"
 	"encoding/base64"
+	"encoding/hex"
+	"encoding/json"
 	"errors"
+	"fmt"
 	"github.com/dgrijalva/jwt-go"
+	"github.com/ethereum/go-ethereum/crypto/secp256k1"
 	"github.com/fagongzi/gateway/pkg/filter"
 	"github.com/fagongzi/log"
 	_ "github.com/go-sql-driver/mysql"
+	"io"
 	"strings"
 )
 
-type GatewayClaims struct {
+type JwtHeader struct {
+	Type string `json:"type"`
+	Alg  string `json:"alg"`
+}
+
+type JwtClaims struct {
 	HttpBody string `json:"httpBody"`
+	Pubkey   string `json:"pubkey"`
 	jwt.StandardClaims
 }
 
@@ -81,122 +92,102 @@ func (f HeadersFilter) Post(c filter.Context) (statusCode int, err error) {
 func validate(c filter.Context) (statusCode int, err error) {
 
 	cookie := c.GetProxyOuterRequest().Header.Cookie("Auth")
-
-	log.Info(string(cookie))
+	// log.Info(string(cookie))
+	signature := string(cookie)
+	signatureStart := strings.LastIndexAny(signature, ".")
+	signatureStart = signatureStart + 1
+	log.Infof("signatureStart is: %v", signatureStart)
+	signatureEnd := len(signature)
+	log.Infof("signatureEnd is: %v", signatureEnd)
+	signatureStr := string([]rune(signature)[signatureStart:signatureEnd])
+	log.Infof("signatureStr is: %v", signatureStr)
 
 	// gets the stream of request parameters；	request type is application/x-www-form-urlencoded
 	c.GetProxyOuterRequest().Body()
 
-	textBodyStream := c.GetProxyOuterRequest().Body()
+	requestBodyStream := c.GetProxyOuterRequest().Body()
 
-	log.Infof("The requested httpBody Stream is: %v", textBodyStream)
+	requestBodyString := string(requestBodyStream[:])
 
-	textBodyString := string(textBodyStream[:])
+	log.Infof("The requestBodyString httpBody String is: %v", requestBodyString)
 
-	log.Infof("The requested httpBody String is: %v", textBodyString)
+	var pubkey string
 
-	var password string
-
-	token, err := jwt.ParseWithClaims(string(cookie), &GatewayClaims{},
+	token, err := jwt.ParseWithClaims(string(cookie), &JwtClaims{},
 		func(token *jwt.Token) (interface{}, error) {
-			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-				log.Infof("Unexpected signing method %v", token.Header["alg"])
-				return nil, nil
-			}
-
-			log.Infof("Enter ParseWithClaims method")
-
-			password = finduserbyName(token.Claims.(*GatewayClaims).Issuer)
-
-			log.Infof("return password by finduserbyName is: %v", password)
-
-			return []byte(password), nil
+			return []byte(pubkey), nil
 		})
 
-	log.Infof("The requested JWT's nonce is: %v", token.Claims.(*GatewayClaims).Id)
-
-	// nonce is exist
-	if checkNonce(token.Claims.(*GatewayClaims).Id) != 1 {
-		log.Infof("This nonce has been used")
-		return 201, errors.New("This nonce has been used")
+	if token.Header["alg"] != "secp256k1" {
+		log.Infof("JWT alg is wrong")
+		return 204, errors.New("JWT alg is wrong")
 	}
 
-	log.Infof("The requested JWT'httpBody is: %v", token.Claims.(*GatewayClaims).HttpBody)
-	log.Infof("The requested HttpBody Have ComputeHmac256 then String is: %v", ComputeHmac256(textBodyString, password))
+	b64 := base64.NewEncoding("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/")
+	var jwtHeader JwtHeader
+	jwtHeader.Alg = "secp256k1"
+	jwtHeader.Type = "JWT"
+	jwtHeader_byte, _ := json.Marshal(jwtHeader)
+	header_string := b64.EncodeToString(jwtHeader_byte)
 
-	if token.Claims.(*GatewayClaims).HttpBody != ComputeHmac256(textBodyString, password) {
+	playload_byte, _ := json.Marshal(token.Claims.(*JwtClaims))
+	playload_string := b64.EncodeToString(playload_byte)
+	jwtMsg := header_string + "." + playload_string
+
+	log.Infof("JWT's Header + . + playload is: %v", jwtMsg)
+
+	msg := ComputeSHA256(jwtMsg)
+
+	log.Infof("JWT's Header + . + playload of ComputeSHA256 is: %v", msg)
+
+	pubkey = finduserbyName(token.Claims.(*JwtClaims).Issuer)
+
+	log.Infof("return pubkey by finduserbyName is: %v", pubkey)
+
+	log.Infof("The requested JWT's nonce is: %v", (token.Claims.(*JwtClaims).Id))
+
+	log.Infof("The requested JWT'httpBody is: %v", (token.Claims.(*JwtClaims).HttpBody))
+
+	if token.Claims.(*JwtClaims).Pubkey != pubkey {
+		log.Infof("User pubkey is not exist")
+		return 201, errors.New("User pubkey is not exist")
+	}
+
+	log.Infof("ComputeSHA256(requestBodyString) is: %v", (ComputeSHA256(requestBodyString)))
+
+	if token.Claims.(*JwtClaims).HttpBody != ComputeSHA256(requestBodyString) {
 		log.Infof("User body has been modified")
 		return 203, errors.New("User body has been modified")
 	}
 
-	if _, ok := token.Claims.(*GatewayClaims); ok && token.Valid {
-		log.Infof("User Redirect Success")
-		return 200, errors.New("success")
+	log.Infof("JWT's signatureStr is: %v", signatureStr)
 
-	} else {
-		log.Infof("User password is wrong")
-		return 202, errors.New("User password is wrong")
+	signByte, _ := hex.DecodeString(signatureStr)
+
+	msgByte, _ := hex.DecodeString(msg)
+
+	pubkey2, err := secp256k1.RecoverPubkey(msgByte, signByte)
+
+	log.Infof("RecoverPubkey pubkey2 is: %v", (hex.EncodeToString(pubkey2)))
+
+	log.Infof("DB pubkey is: %v", pubkey)
+
+	if hex.EncodeToString(pubkey2) != pubkey {
+		log.Infof("secp256k1 is error or pubkey is error")
+		return 205, errors.New("secp256k1 is error or pubkey is error")
 	}
+
+	return 200, errors.New("success")
+
 }
 
-// Check whether nonce exists；default 1（not exist nonce,execute insert);  2:exist 3: error
-func checkNonce(gatewayNonce string) (nonceStatus int) {
+//find pubkey by name
+func finduserbyName(name string) (pubkey string) {
 	db, err := sql.Open("mysql", "root:pass123word01@tcp(172.16.192.91:3308)/gateway?charset=utf8")
-	nonceStatus = 1 //default 1 is not exist
+	pubkey = ""
 	if err != nil {
 		log.Info(err)
-		nonceStatus = 3
-		return nonceStatus
-	}
-
-	defer db.Close()
-
-	var rows *sql.Rows
-	rows, err = db.Query("select * from gateway_nonce")
-	if err != nil {
-		log.Info(err)
-		nonceStatus = 3
-		return nonceStatus
-	}
-
-	for rows.Next() {
-		var nonce string
-		var id int
-		rows.Scan(&id, &nonce)
-		log.Infof("The Method checkNonce id is: %v", id)
-		log.Infof("The Method checkNonce nonce is: %v", nonce)
-		//if nonce hava been black dont insert table
-		if strings.EqualFold(nonce, gatewayNonce) {
-			nonceStatus = 2 // status 2 is exist
-			break
-		}
-	}
-
-	if nonceStatus == 1 {
-		var result sql.Result
-		result, err = db.Exec("insert into gateway_nonce(nonce) values(?)", gatewayNonce)
-		if err != nil {
-			log.Info(err)
-			nonceStatus = 3
-			return nonceStatus
-		}
-		lastId, _ := result.LastInsertId()
-		log.Info("The Method checkNonce insert record's : %v", lastId)
-
-	} else {
-		log.Info("this nonce is exist!!!")
-	}
-	rows.Close()
-	return nonceStatus
-}
-
-//find password by name
-func finduserbyName(name string) (password string) {
-	db, err := sql.Open("mysql", "root:pass123word01@tcp(172.16.192.91:3308)/gateway?charset=utf8")
-	password = ""
-	if err != nil {
-		log.Info(err)
-		return password
+		return pubkey
 	}
 
 	defer db.Close()
@@ -204,35 +195,37 @@ func finduserbyName(name string) (password string) {
 	var rows *sql.Rows
 	log.Info("The Method finduserbyName Request Name is", name)
 
-	rows, err = db.Query("select * from gateway_user where username = ?", name)
+	rows, err = db.Query("select id,pubkey from gateway_user where username = ?", name)
 	if err != nil {
 		log.Info(err)
-		return password
+		return pubkey
 	}
 	for rows.Next() {
-		var username string
 		var id int
-		var userpassword string
-		var createtime string
-		var updatetime string
-		var status int
-		rows.Scan(&id, &username, &userpassword, &createtime, &updatetime, &status)
-		log.Info(id, "\t", username, "\t", userpassword)
-		if !strings.EqualFold(userpassword, "") {
-			password = userpassword
+		rows.Scan(&id, &pubkey)
+		log.Info(id, "\t", pubkey)
+		if !strings.EqualFold(pubkey, "") {
+			pubkey = pubkey
 		}
 	}
-	return password
+
+	log.Infof("pubkey in finduserbyName is: %v", pubkey)
+
+	return pubkey
 }
 
-// HS256 Sign the string by key
-func ComputeHmac256(message string, secret string) string {
-	key := []byte(secret)
-	h := hmac.New(sha256.New, key)
-	h.Write([]byte(message))
-	stringsVal := base64.StdEncoding.EncodeToString(h.Sum(nil))
-	str := strings.Replace(stringsVal, "=", "", -1)
-	str1 := strings.Replace(str, "+", "-", -1)
-	str2 := strings.Replace(str1, "/", "_", -1)
-	return str2
+//对字符串进行SHA1哈希
+func ComputeSHA1(data string) string {
+	t := sha1.New()
+	io.WriteString(t, data)
+	return fmt.Sprintf("%x", t.Sum(nil))
+}
+
+//对字符串进行SHA256哈希
+func ComputeSHA256(data string) string {
+	hash := sha256.New()
+	hash.Write([]byte(data))
+	md := hash.Sum(nil)
+	mdStr := hex.EncodeToString(md)
+	return mdStr
 }

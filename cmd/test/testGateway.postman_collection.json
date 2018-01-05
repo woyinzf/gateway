@@ -1,0 +1,35 @@
+{
+	"id": "d25b1993-052b-2199-8d7f-3b883f543b7b",
+	"name": "go网关",
+	"description": "",
+	"order": [
+		"fae90bfd-f8e1-f031-e7a2-03caff2bd110"
+	],
+	"folders": [],
+	"timestamp": 1515135410790,
+	"owner": "1165898",
+	"public": false,
+	"requests": [
+		{
+			"id": "fae90bfd-f8e1-f031-e7a2-03caff2bd110",
+			"headers": "Content-Type: application/json;charset=utf-8\nCookie: Auth=eyJ0eXBlIjoiSldUIiwiYWxnIjoic2VjcDI1NmsxIn0=.eyJodHRwQm9keSI6ImU4MGFiOGU2MjU0MmMxNjUxYTYxZjI3YThmMmNiODllMTU3ZTZkNzZhZjUyNjE0ZDNjYTAyODhmODI5NzBlNjAiLCJwdWJrZXkiOiIwNDdhZTFiMmMxYzlhNTE3ZjAxYjMxYWMwNTRhNDEzYTE0ZWEwMGM2MmE4NjUzZmZkMWFjNzhiOWY5OTFkYzY5ZDQ5ZmY1MDRkMzgzYjQxODAzOTRlYTUwYzljMWZhNGJlZjgyZjJiODEyZDA0MWIzOWE0ZWJkMzY3MjgyMmQyNWUyIiwiYXVkIjoiZ2F0ZXdheSIsImV4cCI6MTUxMjgwODI3NywianRpIjoiYWJjZGUxMzU3ODcyMjIyNTk4IiwiaXNzIjoiZm9zaGFuLmNvbSJ9.26a0d19fdeaa4aa0a7b5e110d4f4c2f5ab304d8736baf16b25d53cd68ddf1f891ad4fcab19b012d6616c8cf425b9a77c95b012d9ca52b4049c7519cac5e5854a01\n",
+			"url": "http://172.16.99.31:8888/user/register ",
+			"pathVariables": {},
+			"preRequestScript": null,
+			"method": "POST",
+			"collectionId": "d25b1993-052b-2199-8d7f-3b883f543b7b",
+			"data": [],
+			"dataMode": "raw",
+			"name": "1.测试网关JWT（第二版实现）",
+			"description": "测试网关的jwt功能，目前的jwt的签名算法为：以太坊的secp256k1算法，这是第二版实现，第一版为 SHA-256算法",
+			"descriptionFormat": "html",
+			"time": 1515135431492,
+			"version": 2,
+			"responses": [],
+			"tests": null,
+			"currentHelper": "normal",
+			"helperAttributes": {},
+			"rawModeData": "{\"userName\":\"xiaoming\",\"mobile\":\"13887788988\",\"verifyCode\":\"7114\",\"uniqueKey\":\"dddsd789\"}"
+		}
+	]
+}
