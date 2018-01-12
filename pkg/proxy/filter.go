@@ -5,12 +5,18 @@ import (
 	"net/http"
 	"strings"
 	"time"
-
+	"crypto/sha256"
+	"encoding/hex"
+	"database/sql"
+	_ "github.com/go-sql-driver/mysql"
+	"encoding/base64"
 	"github.com/fagongzi/gateway/pkg/filter"
 	"github.com/fagongzi/gateway/pkg/model"
 	"github.com/fagongzi/log"
 	"github.com/valyala/fasthttp"
+	"github.com/fagongzi/gateway/pkg/conf"
 )
+
 
 func (f *Proxy) doPreFilters(c filter.Context) (filterName string, statusCode int, err error) {
 	for iter := f.filters.Front(); iter != nil; iter = iter.Next() {
@@ -229,4 +235,55 @@ func getKey(addr string) string {
 func getAddr(key string) string {
 	info := strings.Split(key, "-")
 	return info[1]
+}
+
+func (c *proxyContext) ComputeSHA256(data string) string {
+	hash := sha256.New()
+	hash.Write([]byte(data))
+	md := hash.Sum(nil)
+	mdStr := hex.EncodeToString(md)
+	return mdStr
+}
+
+//find pubkey by name
+func (c *proxyContext) FinduserbyName(name string) (pubkey string) {
+
+	cnf := conf.GetCfg("config_etcd.json")
+	
+	dbLink := cnf.MysqlUserName + ":" + cnf.MysqlPassword + "@tcp("+ cnf.MysqlIpAddrPort +")/"+ cnf.MysqlDb + "?charset=utf8"
+
+	log.Info(dbLink)
+
+	db, err := sql.Open("mysql", dbLink)
+
+	pubkey = ""
+	if err != nil {
+		log.Info(err)
+		return pubkey
+	}
+	defer db.Close()
+	var rows *sql.Rows
+	log.Info("The Method finduserbyName Request Name is", name)
+
+	rows, err = db.Query("select id,pubkey from gateway_user where username = ?", name)
+	if err != nil {
+		log.Info(err)
+		return pubkey
+	}
+	for rows.Next() {
+		var id int
+		rows.Scan(&id, &pubkey)
+		log.Info(id, "\t", pubkey)
+		if !strings.EqualFold(pubkey, "") {
+			pubkey = pubkey
+		}
+	}
+	log.Infof("pubkey in finduserbyName is: %v", pubkey)
+	return pubkey
+}
+
+func (c *proxyContext) B64EncodeToString(srcByte []byte) string {
+	b64 := base64.NewEncoding("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/")
+	str := b64.EncodeToString(srcByte)
+	return str
 }

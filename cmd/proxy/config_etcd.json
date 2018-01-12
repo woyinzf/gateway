@@ -1,8 +1,13 @@
 {
-    "addr": ":80",
+    "addr": ":8888",
     "mgrAddr": ":8081",
-    "registryAddr": "etcd://127.0.0.1:2379",
+    "registryAddr": "etcd://172.16.192.91:2379",
     "prefix": "/gateway",
+    "jwt":"yes",
+    "mysqlUserName": "root",
+    "mysqlPassword": "pass123word01",
+    "mysqlIpAddrPort": "172.16.192.91:3308",
+    "mysqlDb": "gateway",
     "filers": [
         {
             "name": "whitelist"

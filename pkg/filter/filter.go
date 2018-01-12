@@ -44,6 +44,9 @@ type Context interface {
 	GetRecentlyRequestSuccessedCount(sec int) int
 	GetRecentlyRequestCount(sec int) int
 	GetRecentlyRequestFailureCount(sec int) int
+	ComputeSHA256(str string) string
+	FinduserbyName(name string) (pubkey string) 
+	B64EncodeToString(src []byte) string
 }
 
 // Filter filter interface

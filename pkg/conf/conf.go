@@ -13,6 +13,11 @@ type Conf struct {
 	MgrAddr string `json:"mgrAddr"`
 
 	RegistryAddr string `json:"registryAddr"`
+	Jwt string `json:"jwt"`
+	MysqlUserName string `json:"mysqlUserName"`
+	MysqlPassword string `json:"mysqlPassword"`
+	MysqlIpAddrPort string `json:"mysqlIpAddrPort"`
+	MysqlDb string `json:"mysqlDb"`
 	Prefix       string `json:"prefix"`
 
 	Filers []*FilterSpec `json:"filers"`
