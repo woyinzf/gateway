@@ -46,6 +46,7 @@ type Context interface {
 	GetRecentlyRequestFailureCount(sec int) int
 	ComputeSHA256(str string) string
 	FinduserbyName(name string) (pubkey string) 
+	RedisfindpubkeybyName(name string) (pubkey string) 
 	B64EncodeToString(src []byte) string
 }
 

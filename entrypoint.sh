@@ -5,11 +5,11 @@ start_etcd() {
 }
 
 start_admin() {
-    ./admin --registry-addr etcd://127.0.0.1:2379 --addr=:8080 &
+    ./admin --registry-addr etcd://127.0.0.1:2379 --log-file=admin.log --addr=:8080 &
 }
 
 start_proxy() {
-    ./proxy --cfg ./config_etcd.json --log-level=$GATEWAY_LOG_LEVEL
+    ./proxy --cfg ./config_etcd.json --log-level=$GATEWAY_LOG_LEVEL --log-file=proxy.log
 }
 
 start_etcd

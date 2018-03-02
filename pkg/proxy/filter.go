@@ -15,6 +15,7 @@ import (
 	"github.com/fagongzi/log"
 	"github.com/valyala/fasthttp"
 	"github.com/fagongzi/gateway/pkg/conf"
+	"github.com/garyburd/redigo/redis"
 )
 
 
@@ -245,7 +246,33 @@ func (c *proxyContext) ComputeSHA256(data string) string {
 	return mdStr
 }
 
-//find pubkey by name
+//redis find pubkey by name 
+func (c *proxyContext) RedisfindpubkeybyName(name string) (pubkey string) {
+
+	cnf := conf.GetCfg("config_etcd.json")
+	
+	redisIpAddrPort := cnf.RedisIpAddrPort 
+
+	r, err := redis.Dial("tcp", redisIpAddrPort)
+	if err != nil {
+			fmt.Println("Connect to redis error", err)
+			return
+	}
+	defer r.Close()
+
+	redisValue, err := redis.String(r.Do("GET", "foshan.com"))
+	if err != nil {
+			fmt.Println("redis get failed:", err)
+	} else {
+			fmt.Printf("Get mykey: %v \n", redisValue)
+	}
+
+	log.Infof("redis pubkey in RedisfindpubkeybyName is: %v", redisValue)
+	
+	return redisValue
+}
+
+//mysql find pubkey by name
 func (c *proxyContext) FinduserbyName(name string) (pubkey string) {
 
 	cnf := conf.GetCfg("config_etcd.json")

@@ -18,6 +18,7 @@ type Conf struct {
 	MysqlPassword string `json:"mysqlPassword"`
 	MysqlIpAddrPort string `json:"mysqlIpAddrPort"`
 	MysqlDb string `json:"mysqlDb"`
+	RedisIpAddrPort string `json:"redisIpAddrPort"`
 	Prefix       string `json:"prefix"`
 
 	Filers []*FilterSpec `json:"filers"`

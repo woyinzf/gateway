@@ -137,9 +137,9 @@ func validate(c filter.Context) (statusCode int, err error) {
 
 	log.Infof("JWT's Header + . + playload of ComputeSHA256 is: %v", msg)
 
-	pubkey = c.FinduserbyName(token.Claims.(*JwtClaims).Issuer)
+	pubkey = c.RedisfindpubkeybyName(token.Claims.(*JwtClaims).Issuer)
 
-	log.Infof("return pubkey by finduserbyName is: %v", pubkey)
+	log.Infof("return pubkey by redisfindpubkeybyName is: %v", pubkey)
 
 	log.Infof("The requested JWT's nonce is: %v", (token.Claims.(*JwtClaims).Id))
 
